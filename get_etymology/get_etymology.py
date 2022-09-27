@@ -6,6 +6,10 @@ from bs4 import BeautifulSoup
 import urllib
 import logging
 
+import platform
+if platform.system()=='Windows': # i hate windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 logging.basicConfig(level=logging.ERROR)
 log = logging.getLogger(__name__)
 
@@ -42,10 +46,8 @@ async def scrap(words: list[str]) -> list:
         tasks = [get_etymology(session, word) for word in words]
         return await asyncio.gather(*tasks)
 
+def main() -> None:
+    asyncio.run(scrap(input().split()))
+
 if __name__ == '__main__':
-    
-    import platform
-    if platform.system()=='Windows': # i hate windows
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        
-    asyncio.run(scrap(['база', 'фундамент', 'базис']))
+    main()
