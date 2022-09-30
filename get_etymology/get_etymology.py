@@ -12,7 +12,9 @@ import platform
 if platform.system()=='Windows': # i hate windows
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                    level=logging.DEBUG,
+                    datefmt='%d-%m-%Y %H:%M:%S')
 log = logging.getLogger(__name__)
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> str:
@@ -30,6 +32,11 @@ def get_etymology_on_wiktionary_page(page: str) -> str:
     etymology = soup.find(id="Этимология").find_next('p').text
     return etymology
 
+async def write_to_file(word: str, etymology: str):
+    async with aiofiles.open(pathlib.Path(__file__).parent/'outp.md', 'a', encoding='utf-8') as outp:
+        log.info(f'Writing {word} etymology to file')
+        await outp.write(f'*Этимология слова {word}.*\n{etymology}\n')
+
 async def get_etymology(session: aiohttp.ClientSession, word: str) -> None:
     url = wiktionary_url(word)
     try:
@@ -37,12 +44,9 @@ async def get_etymology(session: aiohttp.ClientSession, word: str) -> None:
     except (aiohttp.ClientError) as exc:
         log.error(f'Cannot get word {word} from Wiktionary: Error {exc.status}')
     else:
-        log.info(f'Got etymology for {word}')
+        log.info(f'Getting etymology for {word}')
         etymology = get_etymology_on_wiktionary_page(page)
-        async with aiofiles.open(pathlib.Path(__file__).parent/'outp.md', 'a', encoding='utf-8') as outp:
-            log.info('Opening outp.md')
-            await outp.write(f'*Этимология слова {word}.*\n{etymology}\n')
-            log.info('Closing outp.md')
+        await write_to_file(word, etymology)
 
 async def scrap(words: set[str]) -> list:
     async with aiohttp.ClientSession() as session:
