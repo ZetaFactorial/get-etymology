@@ -1,16 +1,17 @@
 """Wikipedia won't lie!"""
 
 import asyncio
-import aiofiles
-import aiohttp
-import urllib
-from bs4 import BeautifulSoup
 import logging
 import pathlib
-import regex
-import click
-
 import platform
+import urllib
+
+import aiofiles
+import aiohttp
+import click
+import regex
+from bs4 import BeautifulSoup
+
 if platform.system() == 'Windows':  # i hate windows
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -28,18 +29,35 @@ async def fetch(session: aiohttp.ClientSession, url: str) -> str:
 
 
 def wiktionary_url(word: str) -> str:
-    word = urllib.parse.quote(word.encode('utf-8')).lower()
+    word = urllib.parse.quote(word.lower().encode('utf-8'))
     return f"https://ru.wiktionary.org/wiki/{word}"
 
 
-def get_etymology_on_wiktionary_page(page: str) -> str | None:
+def parse_etymology(page: str) -> str:
     soup = BeautifulSoup(page, "html.parser")
 
+    language = soup.find(id="Русский")
+    if not language:
+        return ''
     
-    if tag := soup.find(id=regex.compile("^Этимология")):
-        etymology = tag.find_next('p').find_next_siblings('p')
-        return etymology[0].text
-    return None
+    text: list[str] = []
+    
+    tags = language.find_all_next()
+    for tag in tags:
+        
+        if tag.name == 'h1':
+            break
+        
+        if tag.name == 'h3' and tag.find(id=regex.compile("^Этимология")):
+            text_begins = True
+            for text_tag in tag.find_next_siblings():
+                if text_tag.name in ['p', 'ul']:
+                    text.append(f"{'-' if text_begins else ''} {text_tag.text}")
+                    text_begins = False
+                else:
+                    break
+    
+    return ''.join(text)
 
 
 async def write_to_file(word: str, etymology: str):
@@ -58,7 +76,7 @@ async def get_etymology(session: aiohttp.ClientSession, word: str) -> None:
         log.eror(f'Unexpected error when processing {word}: {exc}')
     else:
         log.info(f'Getting etymology for {word}')
-        etymology = get_etymology_on_wiktionary_page(page)
+        etymology = parse_etymology(page)
         if etymology:
             await write_to_file(word, etymology)
 
@@ -79,14 +97,5 @@ def read_words(filename='input.md') -> set[str]:
     return words
 
 
-@click.command()
-@click.option('--filename',
-              default='input.md',
-              help='''Gets words from the given file in the current directory and writes
-                   etymologies to the file scrappedetymologies.md.''')
-def get_etymologies(filename):
-    asyncio.run(scrap(read_words(filename)))
-
-
 if __name__ == '__main__':
-    get_etymologies()
+    asyncio.run(scrap(read_words('input.md')))
