@@ -72,7 +72,7 @@ async def get_etymology(session: aiohttp.ClientSession, word: str) -> None:
     except aiohttp.ClientError as exc:
         log.error(f'Cannot get word {word} from Wiktionary: Error {exc.status}')
     except Exception as exc:
-        log.eror(f'Unexpected error when processing {word}: {exc}')
+        log.error(f'Unexpected error when processing {word}: {exc}')
     else:
         log.info(f'Getting etymology for {word}')
         etymology = parse_etymology(page)
